@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB 채널 분리 및 픽셀 분석기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000000;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 30px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-upload {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .btn-upload:hover {
+            background-color: #45a049;
+        }
+
+        .btn-sample {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-sample:hover {
+            background-color: #0b7dda;
+        }
+
+        .btn-reset {
+            background-color: #FF5252;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background-color: #E53935;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: 1fr 0.6fr;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto 40px;
+            align-items: center;
+        }
+
+        .original-container {
+            grid-row: 1 / 4;
+        }
+
+        .channels-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .image-container {
+            position: relative;
+            background-color: #f5f5f5;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .channel-container {
+            position: relative;
+            background-color: #f5f5f5;
+            border-radius: 12px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+        }
+
+        .image-label {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .arrow-indicator {
+            position: absolute;
+            color: #666;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .arrow-to-r {
+            top: 15%;
+            right: -40px;
+        }
+
+        .arrow-to-g {
+            top: 50%;
+            right: -40px;
+            transform: translateY(-50%);
+        }
+
+        .arrow-to-b {
+            bottom: 15%;
+            right: -40px;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            margin: 0 auto;
+            cursor: crosshair;
+            border-radius: 8px;
+        }
+
+        .pixel-info {
+            max-width: 1400px;
+            margin: 0 auto 30px;
+            background-color: #f9f9f9;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .pixel-location {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .pixel-rgb {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: #333;
+        }
+
+        .color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: 2px solid #555;
+            display: inline-block;
+        }
+
+        .matrix-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .channel-box {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e0e0e0;
+        }
+
+        .channel-box.r-channel {
+            border-color: #ffcccb;
+        }
+
+        .channel-box.g-channel {
+            border-color: #c8e6c9;
+        }
+
+        .channel-box.b-channel {
+            border-color: #bbdefb;
+        }
+
+        .channel-header {
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .channel-header.r {
+            background-color: #8B0000;
+            color: white;
+        }
+
+        .channel-header.g {
+            background-color: #006400;
+            color: white;
+        }
+
+        .channel-header.b {
+            background-color: #00008B;
+            color: white;
+        }
+
+        .zoom-canvas {
+            display: block;
+            margin: 0 auto 15px;
+            border: 2px solid #555;
+            border-radius: 8px;
+            image-rendering: pixelated;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 17px;
+            font-family: 'Courier New', monospace;
+            background-color: #ffffff;
+        }
+
+        .matrix-table td {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        .r-channel .matrix-table {
+            color: #D32F2F;
+        }
+
+        .g-channel .matrix-table {
+            color: #388E3C;
+        }
+
+        .b-channel .matrix-table {
+            color: #1976D2;
+        }
+
+        .matrix-table td.center {
+            background-color: #FFF9C4;
+            font-weight: bold;
+            border: 2px solid #FBC02D;
+        }
+
+        .instruction {
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <div class="header">
+        <h1>🎨 RGB 채널 분리 및 픽셀 분석기</h1>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">
+            📁 이미지 업로드
+        </button>
+        <input type="file" id="fileInput" accept="image/*">
+        <button class="btn btn-sample" onclick="loadSampleImage()">
+            🖼️ 샘플 이미지 사용
+        </button>
+        <button class="btn btn-reset" onclick="resetApp()">
+            🔄 초기화
+        </button>
+    </div>
+
+    <div class="image-grid">
+        <div class="original-container">
+            <div class="image-container">
+                <div class="image-label">원본 이미지</div>
+                <canvas id="originalCanvas"></canvas>
+                <div class="arrow-indicator arrow-to-r">→</div>
+                <div class="arrow-indicator arrow-to-g">→</div>
+                <div class="arrow-indicator arrow-to-b">→</div>
+            </div>
+        </div>
+        
+        <div class="channels-container">
+            <div class="channel-container">
+                <div class="image-label">R 채널</div>
+                <canvas id="rCanvas"></canvas>
+            </div>
+            
+            <div class="channel-container">
+                <div class="image-label">G 채널</div>
+                <canvas id="gCanvas"></canvas>
+            </div>
+            
+            <div class="channel-container">
+                <div class="image-label">B 채널</div>
+                <canvas id="bCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="pixel-info" id="pixelInfo" style="display: none;">
+        <div class="pixel-location" id="pixelLocation"></div>
+        <div class="pixel-rgb" id="pixelRGB"></div>
+    </div>
+
+    <div class="matrix-container" id="matrixContainer" style="display: none;">
+        <div class="channel-box r-channel">
+            <div class="channel-header r">🔴 R 채널</div>
+            <canvas class="zoom-canvas" id="rZoom" width="50" height="50"></canvas>
+            <table class="matrix-table" id="rMatrix"></table>
+        </div>
+        
+        <div class="channel-box g-channel">
+            <div class="channel-header g">🟢 G 채널</div>
+            <canvas class="zoom-canvas" id="gZoom" width="50" height="50"></canvas>
+            <table class="matrix-table" id="gMatrix"></table>
+        </div>
+        
+        <div class="channel-box b-channel">
+            <div class="channel-header b">🔵 B 채널</div>
+            <canvas class="zoom-canvas" id="bZoom" width="50" height="50"></canvas>
+            <table class="matrix-table" id="bMatrix"></table>
+        </div>
+    </div>
+
+    <div class="instruction">
+        💡 이미지를 업로드하거나 샘플 이미지를 불러온 후, 이미지를 클릭하여 픽셀 정보를 확인하세요.
+    </div>
+    </div> <!-- container 끝 -->
+
+    <script>
+        let originalImage = null;
+        let imageData = null;
+
+        const originalCanvas = document.getElementById('originalCanvas');
+        const rCanvas = document.getElementById('rCanvas');
+        const gCanvas = document.getElementById('gCanvas');
+        const bCanvas = document.getElementById('bCanvas');
+
+        const originalCtx = originalCanvas.getContext('2d');
+        const rCtx = rCanvas.getContext('2d');
+        const gCtx = gCanvas.getContext('2d');
+        const bCtx = bCanvas.getContext('2d');
+
+        // 파일 업로드
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    loadImage(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 샘플 이미지 로드
+        function loadSampleImage() {
+            // 간단한 샘플 이미지 생성 (그라디언트)
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            
+            // 그라디언트 배경
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#FF6B6B');
+            gradient.addColorStop(0.5, '#4ECDC4');
+            gradient.addColorStop(1, '#45B7D1');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 일부 도형 추가
+            ctx.fillStyle = '#FFE66D';
+            ctx.fillRect(50, 50, 100, 100);
+            
+            ctx.fillStyle = '#A8E6CF';
+            ctx.beginPath();
+            ctx.arc(300, 150, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            loadImage(canvas.toDataURL());
+        }
+
+        // 이미지 로드 및 처리
+        function loadImage(src) {
+            const img = new Image();
+            img.onload = function() {
+                originalImage = img;
+                
+                // 원본 캔버스 설정
+                originalCanvas.width = img.width;
+                originalCanvas.height = img.height;
+                originalCtx.drawImage(img, 0, 0);
+                
+                // 채널 분리 캔버스 설정 (60% 크기)
+                const channelWidth = Math.floor(img.width * 0.6);
+                const channelHeight = Math.floor(img.height * 0.6);
+                
+                rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
+                rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
+                
+                // 이미지 데이터 가져오기
+                imageData = originalCtx.getImageData(0, 0, img.width, img.height);
+                
+                // 채널 분리
+                separateChannels();
+                
+                // 중앙 픽셀 자동 선택
+                const centerX = Math.floor(img.width / 2);
+                const centerY = Math.floor(img.height / 2);
+                updatePixelInfo(centerX, centerY);
+                
+                // 클릭 이벤트 등록
+                addClickListeners();
+            };
+            img.src = src;
+        }
+
+        // RGB 채널 분리
+        // RGB 채널 분리
+        function separateChannels() {
+            const data = imageData.data;
+            const width = originalCanvas.width;
+            const height = originalCanvas.height;
+            
+            const rData = rCtx.createImageData(rCanvas.width, rCanvas.height);
+            const gData = gCtx.createImageData(gCanvas.width, gCanvas.height);
+            const bData = bCtx.createImageData(bCanvas.width, bCanvas.height);
+            
+            for (let y = 0; y < rCanvas.height; y++) {
+                for (let x = 0; x < rCanvas.width; x++) {
+                    const srcX = Math.floor(x / 0.6);
+                    const srcY = Math.floor(y / 0.6);
+                    const srcIdx = (srcY * width + srcX) * 4;
+                    const destIdx = (y * rCanvas.width + x) * 4;
+                    
+                    // R 채널 (R만 추출, G와 B는 0)
+                    rData.data[destIdx] = data[srcIdx];      // R
+                    rData.data[destIdx + 1] = 0;              // G = 0
+                    rData.data[destIdx + 2] = 0;              // B = 0
+                    rData.data[destIdx + 3] = 255;
+                    
+                    // G 채널 (G만 추출, R와 B는 0)
+                    gData.data[destIdx] = 0;                  // R = 0
+                    gData.data[destIdx + 1] = data[srcIdx + 1]; // G
+                    gData.data[destIdx + 2] = 0;              // B = 0
+                    gData.data[destIdx + 3] = 255;
+                    
+                    // B 채널 (B만 추출, R와 G는 0)
+                    bData.data[destIdx] = 0;                  // R = 0
+                    bData.data[destIdx + 1] = 0;              // G = 0
+                    bData.data[destIdx + 2] = data[srcIdx + 2]; // B
+                    bData.data[destIdx + 3] = 255;
+                }
+            }
+            
+            rCtx.putImageData(rData, 0, 0);
+            gCtx.putImageData(gData, 0, 0);
+            bCtx.putImageData(bData, 0, 0);
+        }
+
+        // 클릭 이벤트 리스너 등록
+        function addClickListeners() {
+            [originalCanvas, rCanvas, gCanvas, bCanvas].forEach((canvas, idx) => {
+                canvas.addEventListener('click', function(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+                    const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+                    
+                    // 채널 캔버스 클릭 시 원본 좌표로 변환
+                    let originalX = x;
+                    let originalY = y;
+                    
+                    if (idx > 0) { // R, G, B 캔버스
+                        originalX = Math.floor(x / 0.6);
+                        originalY = Math.floor(y / 0.6);
+                    }
+                    
+                    updatePixelInfo(originalX, originalY);
+                });
+            });
+        }
+
+        // 픽셀 정보 업데이트
+        function updatePixelInfo(x, y) {
+            const width = originalCanvas.width;
+            const height = originalCanvas.height;
+            
+            // 경계 체크
+            if (x < 0 || x >= width || y < 0 || y >= height) return;
+            
+            const data = imageData.data;
+            const idx = (y * width + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            
+            // 픽셀 위치 및 RGB 정보 표시
+            document.getElementById('pixelInfo').style.display = 'block';
+            document.getElementById('pixelLocation').innerHTML = 
+                `📍 클릭한 픽셀 위치: (i, j) = (${y}, ${x})`;
+            document.getElementById('pixelRGB').innerHTML = 
+                `RGB: (${r}, ${g}, ${b}) <span class="color-preview" style="background-color: rgb(${r}, ${g}, ${b});"></span>`;
+            
+            // 5×5 행렬 및 확대 이미지 생성
+            create5x5Matrix(x, y, r, g, b);
+            
+            document.getElementById('matrixContainer').style.display = 'grid';
+        }
+
+        // 5×5 행렬 및 확대 이미지 생성
+        function create5x5Matrix(centerX, centerY, centerR, centerG, centerB) {
+            const data = imageData.data;
+            const width = originalCanvas.width;
+            const height = originalCanvas.height;
+            
+            const rMatrix = [];
+            const gMatrix = [];
+            const bMatrix = [];
+            
+            // 5×5 영역 데이터 수집
+            for (let dy = -2; dy <= 2; dy++) {
+                const rRow = [];
+                const gRow = [];
+                const bRow = [];
+                
+                for (let dx = -2; dx <= 2; dx++) {
+                    const px = centerX + dx;
+                    const py = centerY + dy;
+                    
+                    if (px >= 0 && px < width && py >= 0 && py < height) {
+                        const idx = (py * width + px) * 4;
+                        rRow.push(data[idx]);
+                        gRow.push(data[idx + 1]);
+                        bRow.push(data[idx + 2]);
+                    } else {
+                        rRow.push(0);
+                        gRow.push(0);
+                        bRow.push(0);
+                    }
+                }
+                
+                rMatrix.push(rRow);
+                gMatrix.push(gRow);
+                bMatrix.push(bRow);
+            }
+            
+            // 행렬 테이블 생성
+            createMatrixTable('rMatrix', rMatrix);
+            createMatrixTable('gMatrix', gMatrix);
+            createMatrixTable('bMatrix', bMatrix);
+            
+            // 확대 이미지 생성
+            createZoomCanvas('rZoom', rMatrix);
+            createZoomCanvas('gZoom', gMatrix);
+            createZoomCanvas('bZoom', bMatrix);
+        }
+
+        // 행렬 테이블 생성
+        function createMatrixTable(elementId, matrix) {
+            const table = document.getElementById(elementId);
+            table.innerHTML = '';
+            
+            for (let i = 0; i < 5; i++) {
+                const row = table.insertRow();
+                for (let j = 0; j < 5; j++) {
+                    const cell = row.insertCell();
+                    cell.textContent = matrix[i][j];
+                    
+                    // 중앙 셀 강조
+                    if (i === 2 && j === 2) {
+                        cell.className = 'center';
+                    }
+                }
+            }
+        }
+
+        // 확대 캔버스 생성 (5×5 → 50×50)
+        // 확대 캔버스 생성 (5×5 → 50×50)
+        function createZoomCanvas(canvasId, matrix) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+            
+            const cellSize = 10; // 각 픽셀을 10×10으로 확대
+            
+            // 채널 구분
+            let channelType = 'r';
+            if (canvasId === 'gZoom') channelType = 'g';
+            else if (canvasId === 'bZoom') channelType = 'b';
+            
+            for (let i = 0; i < 5; i++) {
+                for (let j = 0; j < 5; j++) {
+                    const value = matrix[i][j];
+                    
+                    // 각 채널에 맞는 색상 설정
+                    if (channelType === 'r') {
+                        ctx.fillStyle = `rgb(${value}, 0, 0)`; // 빨강만
+                    } else if (channelType === 'g') {
+                        ctx.fillStyle = `rgb(0, ${value}, 0)`; // 초록만
+                    } else if (channelType === 'b') {
+                        ctx.fillStyle = `rgb(0, 0, ${value})`; // 파랑만
+                    }
+                    
+                    ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+                }
+            }
+            
+            // 중앙 픽셀 테두리 강조
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(2 * cellSize, 2 * cellSize, cellSize, cellSize);
+        }
+
+        // 초기화 함수
+        function resetApp() {
+            originalImage = null;
+            imageData = null;
+            
+            // 모든 캔버스 초기화
+            [originalCanvas, rCanvas, gCanvas, bCanvas].forEach(canvas => {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.width = 0;
+                canvas.height = 0;
+            });
+            
+            // 정보 영역 숨기기
+            document.getElementById('pixelInfo').style.display = 'none';
+            document.getElementById('matrixContainer').style.display = 'none';
+            
+            // 파일 입력 초기화
+            document.getElementById('fileInput').value = '';
+        }
+    </script>
+</body>
+</html>
