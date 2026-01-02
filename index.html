@@ -465,8 +465,8 @@
                     const displayHeight = rect.height;
                     
                     // 화면 표시 크기의 40%로 채널 크기 설정
-                    const channelWidth = Math.floor(displayWidth * 0.4);
-                    const channelHeight = Math.floor(displayHeight * 0.4);
+                    const channelWidth = Math.floor(displayWidth * 0.6);
+                    const channelHeight = Math.floor(displayHeight * 0.6);
                     
                     rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
                     rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
@@ -505,8 +505,8 @@
                 for (let x = 0; x < rCanvas.width; x++) {
                     const srcX = Math.floor(x / scaleX);
                     const srcY = Math.floor(y / scaleY);
-                    const srcIdx = (srcY * width + srcX) * 4;
-                    const destIdx = (y * rCanvas.width + x) * 4;
+                    const srcIdx = (srcY * width + srcX) * 6;
+                    const destIdx = (y * rCanvas.width + x) * 6;
                     
                     // R 채널
                     rData.data[destIdx] = data[srcIdx];
