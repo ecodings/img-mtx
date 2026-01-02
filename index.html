@@ -87,22 +87,25 @@
 
         .image-grid {
             display: grid;
-            grid-template-columns: 1fr 0.6fr;
-            gap: 30px;
-            max-width: 1400px;
-            margin: 0 auto 40px;
-            align-items: center;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto 20px;
+            align-items: start;
         }
 
         .original-container {
-            grid-row: 1 / 4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .channels-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
             align-items: center;
+            padding-top: 20px;
         }
 
         .image-container {
@@ -132,34 +135,43 @@
 
         .arrow-indicator {
             position: absolute;
-            color: #666;
-            font-size: 32px;
+            color: #888;
+            font-size: 36px;
             font-weight: bold;
         }
 
         .arrow-to-r {
-            top: 15%;
-            right: -40px;
+            top: 20%;
+            right: -45px;
         }
 
         .arrow-to-g {
             top: 50%;
-            right: -40px;
+            right: -45px;
             transform: translateY(-50%);
         }
 
         .arrow-to-b {
-            bottom: 15%;
-            right: -40px;
+            bottom: 20%;
+            right: -45px;
         }
 
         canvas {
             display: block;
             max-width: 100%;
+            max-height: 500px;
             height: auto;
             margin: 0 auto;
             cursor: crosshair;
             border-radius: 8px;
+        }
+
+        .click-guide {
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+            margin-top: 15px;
+            font-weight: 500;
         }
 
         .pixel-info {
@@ -191,6 +203,17 @@
             border-radius: 8px;
             border: 2px solid #555;
             display: inline-block;
+        }
+
+        .matrix-guide {
+            text-align: center;
+            color: #555;
+            font-size: 16px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
         }
 
         .matrix-container {
@@ -291,6 +314,13 @@
             font-size: 16px;
             margin-top: 20px;
         }
+
+        .selection-box {
+            position: absolute;
+            border: 3px solid #FFD700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -314,13 +344,14 @@
 
     <div class="image-grid">
         <div class="original-container">
-            <div class="image-container">
+            <div class="image-container" id="originalContainer">
                 <div class="image-label">원본 이미지</div>
                 <canvas id="originalCanvas"></canvas>
                 <div class="arrow-indicator arrow-to-r">→</div>
                 <div class="arrow-indicator arrow-to-g">→</div>
                 <div class="arrow-indicator arrow-to-b">→</div>
             </div>
+            <div class="click-guide">👆 이미지의 임의 위치를 클릭해보세요</div>
         </div>
         
         <div class="channels-container">
@@ -346,6 +377,10 @@
         <div class="pixel-rgb" id="pixelRGB"></div>
     </div>
 
+    <div class="matrix-guide" id="matrixGuide" style="display: none;">
+        📊 클릭한 위치를 중심으로 5×5 픽셀 영역의 RGB 채널별 값을 확인할 수 있습니다
+    </div>
+
     <div class="matrix-container" id="matrixContainer" style="display: none;">
         <div class="channel-box r-channel">
             <div class="channel-header r">🔴 R 채널</div>
@@ -369,11 +404,12 @@
     <div class="instruction">
         💡 이미지를 업로드하거나 샘플 이미지를 불러온 후, 이미지를 클릭하여 픽셀 정보를 확인하세요.
     </div>
-    </div> <!-- container 끝 -->
+    </div>
 
     <script>
         let originalImage = null;
         let imageData = null;
+        let selectionBox = null;
 
         const originalCanvas = document.getElementById('originalCanvas');
         const rCanvas = document.getElementById('rCanvas');
@@ -399,13 +435,11 @@
 
         // 샘플 이미지 로드
         function loadSampleImage() {
-            // 간단한 샘플 이미지 생성 (그라디언트)
             const canvas = document.createElement('canvas');
             canvas.width = 400;
             canvas.height = 300;
             const ctx = canvas.getContext('2d');
             
-            // 그라디언트 배경
             const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             gradient.addColorStop(0, '#FF6B6B');
             gradient.addColorStop(0.5, '#4ECDC4');
@@ -413,7 +447,6 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 일부 도형 추가
             ctx.fillStyle = '#FFE66D';
             ctx.fillRect(50, 50, 100, 100);
             
@@ -431,36 +464,29 @@
             img.onload = function() {
                 originalImage = img;
                 
-                // 원본 캔버스 설정
                 originalCanvas.width = img.width;
                 originalCanvas.height = img.height;
                 originalCtx.drawImage(img, 0, 0);
                 
-                // 채널 분리 캔버스 설정 (60% 크기)
-                const channelWidth = Math.floor(img.width * 0.6);
-                const channelHeight = Math.floor(img.height * 0.6);
+                const channelWidth = Math.floor(img.width * 0.5);
+                const channelHeight = Math.floor(img.height * 0.5);
                 
                 rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
                 rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
                 
-                // 이미지 데이터 가져오기
                 imageData = originalCtx.getImageData(0, 0, img.width, img.height);
                 
-                // 채널 분리
                 separateChannels();
                 
-                // 중앙 픽셀 자동 선택
                 const centerX = Math.floor(img.width / 2);
                 const centerY = Math.floor(img.height / 2);
                 updatePixelInfo(centerX, centerY);
                 
-                // 클릭 이벤트 등록
                 addClickListeners();
             };
             img.src = src;
         }
 
-        // RGB 채널 분리
         // RGB 채널 분리
         function separateChannels() {
             const data = imageData.data;
@@ -473,27 +499,27 @@
             
             for (let y = 0; y < rCanvas.height; y++) {
                 for (let x = 0; x < rCanvas.width; x++) {
-                    const srcX = Math.floor(x / 0.6);
-                    const srcY = Math.floor(y / 0.6);
+                    const srcX = Math.floor(x / 0.5);
+                    const srcY = Math.floor(y / 0.5);
                     const srcIdx = (srcY * width + srcX) * 4;
                     const destIdx = (y * rCanvas.width + x) * 4;
                     
                     // R 채널 (R만 추출, G와 B는 0)
-                    rData.data[destIdx] = data[srcIdx];      // R
-                    rData.data[destIdx + 1] = 0;              // G = 0
-                    rData.data[destIdx + 2] = 0;              // B = 0
+                    rData.data[destIdx] = data[srcIdx];
+                    rData.data[destIdx + 1] = 0;
+                    rData.data[destIdx + 2] = 0;
                     rData.data[destIdx + 3] = 255;
                     
                     // G 채널 (G만 추출, R와 B는 0)
-                    gData.data[destIdx] = 0;                  // R = 0
-                    gData.data[destIdx + 1] = data[srcIdx + 1]; // G
-                    gData.data[destIdx + 2] = 0;              // B = 0
+                    gData.data[destIdx] = 0;
+                    gData.data[destIdx + 1] = data[srcIdx + 1];
+                    gData.data[destIdx + 2] = 0;
                     gData.data[destIdx + 3] = 255;
                     
                     // B 채널 (B만 추출, R와 G는 0)
-                    bData.data[destIdx] = 0;                  // R = 0
-                    bData.data[destIdx + 1] = 0;              // G = 0
-                    bData.data[destIdx + 2] = data[srcIdx + 2]; // B
+                    bData.data[destIdx] = 0;
+                    bData.data[destIdx + 1] = 0;
+                    bData.data[destIdx + 2] = data[srcIdx + 2];
                     bData.data[destIdx + 3] = 255;
                 }
             }
@@ -511,13 +537,12 @@
                     const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
                     const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
                     
-                    // 채널 캔버스 클릭 시 원본 좌표로 변환
                     let originalX = x;
                     let originalY = y;
                     
-                    if (idx > 0) { // R, G, B 캔버스
-                        originalX = Math.floor(x / 0.6);
-                        originalY = Math.floor(y / 0.6);
+                    if (idx > 0) {
+                        originalX = Math.floor(x / 0.5);
+                        originalY = Math.floor(y / 0.5);
                     }
                     
                     updatePixelInfo(originalX, originalY);
@@ -525,12 +550,48 @@
             });
         }
 
+        // 선택 영역 표시
+        function showSelectionBox(centerX, centerY) {
+            // 기존 선택 박스 제거
+            if (selectionBox) {
+                selectionBox.remove();
+            }
+            
+            const container = document.getElementById('originalContainer');
+            const canvas = originalCanvas;
+            const rect = canvas.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // 5x5 영역 계산
+            const boxSize = 5;
+            const startX = centerX - 2;
+            const startY = centerY - 2;
+            
+            // 캔버스 좌표를 화면 좌표로 변환
+            const scaleX = rect.width / canvas.width;
+            const scaleY = rect.height / canvas.height;
+            
+            const boxLeft = startX * scaleX;
+            const boxTop = startY * scaleY;
+            const boxWidth = boxSize * scaleX;
+            const boxHeight = boxSize * scaleY;
+            
+            // 선택 박스 생성
+            selectionBox = document.createElement('div');
+            selectionBox.className = 'selection-box';
+            selectionBox.style.left = (rect.left - containerRect.left + boxLeft) + 'px';
+            selectionBox.style.top = (rect.top - containerRect.top + boxTop) + 'px';
+            selectionBox.style.width = boxWidth + 'px';
+            selectionBox.style.height = boxHeight + 'px';
+            
+            container.appendChild(selectionBox);
+        }
+
         // 픽셀 정보 업데이트
         function updatePixelInfo(x, y) {
             const width = originalCanvas.width;
             const height = originalCanvas.height;
             
-            // 경계 체크
             if (x < 0 || x >= width || y < 0 || y >= height) return;
             
             const data = imageData.data;
@@ -539,16 +600,18 @@
             const g = data[idx + 1];
             const b = data[idx + 2];
             
-            // 픽셀 위치 및 RGB 정보 표시
             document.getElementById('pixelInfo').style.display = 'block';
             document.getElementById('pixelLocation').innerHTML = 
                 `📍 클릭한 픽셀 위치: (i, j) = (${y}, ${x})`;
             document.getElementById('pixelRGB').innerHTML = 
                 `RGB: (${r}, ${g}, ${b}) <span class="color-preview" style="background-color: rgb(${r}, ${g}, ${b});"></span>`;
             
-            // 5×5 행렬 및 확대 이미지 생성
+            // 선택 영역 표시
+            showSelectionBox(x, y);
+            
             create5x5Matrix(x, y, r, g, b);
             
+            document.getElementById('matrixGuide').style.display = 'block';
             document.getElementById('matrixContainer').style.display = 'grid';
         }
 
@@ -562,7 +625,6 @@
             const gMatrix = [];
             const bMatrix = [];
             
-            // 5×5 영역 데이터 수집
             for (let dy = -2; dy <= 2; dy++) {
                 const rRow = [];
                 const gRow = [];
@@ -589,12 +651,10 @@
                 bMatrix.push(bRow);
             }
             
-            // 행렬 테이블 생성
             createMatrixTable('rMatrix', rMatrix);
             createMatrixTable('gMatrix', gMatrix);
             createMatrixTable('bMatrix', bMatrix);
             
-            // 확대 이미지 생성
             createZoomCanvas('rZoom', rMatrix);
             createZoomCanvas('gZoom', gMatrix);
             createZoomCanvas('bZoom', bMatrix);
@@ -611,7 +671,6 @@
                     const cell = row.insertCell();
                     cell.textContent = matrix[i][j];
                     
-                    // 중앙 셀 강조
                     if (i === 2 && j === 2) {
                         cell.className = 'center';
                     }
@@ -620,15 +679,13 @@
         }
 
         // 확대 캔버스 생성 (5×5 → 50×50)
-        // 확대 캔버스 생성 (5×5 → 50×50)
         function createZoomCanvas(canvasId, matrix) {
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
             ctx.imageSmoothingEnabled = false;
             
-            const cellSize = 10; // 각 픽셀을 10×10으로 확대
+            const cellSize = 10;
             
-            // 채널 구분
             let channelType = 'r';
             if (canvasId === 'gZoom') channelType = 'g';
             else if (canvasId === 'bZoom') channelType = 'b';
@@ -637,20 +694,18 @@
                 for (let j = 0; j < 5; j++) {
                     const value = matrix[i][j];
                     
-                    // 각 채널에 맞는 색상 설정
                     if (channelType === 'r') {
-                        ctx.fillStyle = `rgb(${value}, 0, 0)`; // 빨강만
+                        ctx.fillStyle = `rgb(${value}, 0, 0)`;
                     } else if (channelType === 'g') {
-                        ctx.fillStyle = `rgb(0, ${value}, 0)`; // 초록만
+                        ctx.fillStyle = `rgb(0, ${value}, 0)`;
                     } else if (channelType === 'b') {
-                        ctx.fillStyle = `rgb(0, 0, ${value})`; // 파랑만
+                        ctx.fillStyle = `rgb(0, 0, ${value})`;
                     }
                     
                     ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
                 }
             }
             
-            // 중앙 픽셀 테두리 강조
             ctx.strokeStyle = '#FFD700';
             ctx.lineWidth = 2;
             ctx.strokeRect(2 * cellSize, 2 * cellSize, cellSize, cellSize);
@@ -661,7 +716,11 @@
             originalImage = null;
             imageData = null;
             
-            // 모든 캔버스 초기화
+            if (selectionBox) {
+                selectionBox.remove();
+                selectionBox = null;
+            }
+            
             [originalCanvas, rCanvas, gCanvas, bCanvas].forEach(canvas => {
                 const ctx = canvas.getContext('2d');
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -669,11 +728,10 @@
                 canvas.height = 0;
             });
             
-            // 정보 영역 숨기기
             document.getElementById('pixelInfo').style.display = 'none';
+            document.getElementById('matrixGuide').style.display = 'none';
             document.getElementById('matrixContainer').style.display = 'none';
             
-            // 파일 입력 초기화
             document.getElementById('fileInput').value = '';
         }
     </script>
