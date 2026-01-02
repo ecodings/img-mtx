@@ -86,26 +86,28 @@
         }
 
         .image-grid {
+            position: relative;
             display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 40px;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
             max-width: 1200px;
             margin: 0 auto 20px;
-            align-items: start;
+            align-items: center;
         }
 
         .original-container {
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-self: end;
         }
 
         .channels-container {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 20px;
             align-items: center;
-            padding-top: 20px;
+            justify-self: start;
         }
 
         .image-container {
@@ -131,29 +133,6 @@
             font-weight: 600;
             font-size: 18px;
             color: #333;
-        }
-
-        .arrow-indicator {
-            position: absolute;
-            color: #888;
-            font-size: 36px;
-            font-weight: bold;
-        }
-
-        .arrow-to-r {
-            top: 20%;
-            right: -45px;
-        }
-
-        .arrow-to-g {
-            top: 50%;
-            right: -45px;
-            transform: translateY(-50%);
-        }
-
-        .arrow-to-b {
-            bottom: 20%;
-            right: -45px;
         }
 
         canvas {
@@ -321,6 +300,17 @@
             box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
             pointer-events: none;
         }
+
+        /* 연결선을 위한 SVG */
+        .connection-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -342,30 +332,29 @@
         </button>
     </div>
 
-    <div class="image-grid">
+    <div class="image-grid" id="imageGrid">
+        <svg class="connection-lines" id="connectionLines"></svg>
+        
         <div class="original-container">
             <div class="image-container" id="originalContainer">
                 <div class="image-label">원본 이미지</div>
                 <canvas id="originalCanvas"></canvas>
-                <div class="arrow-indicator arrow-to-r">→</div>
-                <div class="arrow-indicator arrow-to-g">→</div>
-                <div class="arrow-indicator arrow-to-b">→</div>
             </div>
             <div class="click-guide">👆 이미지의 임의 위치를 클릭해보세요</div>
         </div>
         
-        <div class="channels-container">
-            <div class="channel-container">
+        <div class="channels-container" id="channelsContainer">
+            <div class="channel-container" id="rContainer">
                 <div class="image-label">R 채널</div>
                 <canvas id="rCanvas"></canvas>
             </div>
             
-            <div class="channel-container">
+            <div class="channel-container" id="gContainer">
                 <div class="image-label">G 채널</div>
                 <canvas id="gCanvas"></canvas>
             </div>
             
-            <div class="channel-container">
+            <div class="channel-container" id="bContainer">
                 <div class="image-label">B 채널</div>
                 <canvas id="bCanvas"></canvas>
             </div>
@@ -468,8 +457,9 @@
                 originalCanvas.height = img.height;
                 originalCtx.drawImage(img, 0, 0);
                 
-                const channelWidth = Math.floor(img.width * 0.5);
-                const channelHeight = Math.floor(img.height * 0.5);
+                // 채널 크기를 40%로 축소
+                const channelWidth = Math.floor(img.width * 0.4);
+                const channelHeight = Math.floor(img.height * 0.4);
                 
                 rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
                 rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
@@ -483,6 +473,9 @@
                 updatePixelInfo(centerX, centerY);
                 
                 addClickListeners();
+                
+                // 연결선 그리기
+                drawConnectionLines();
             };
             img.src = src;
         }
@@ -499,8 +492,8 @@
             
             for (let y = 0; y < rCanvas.height; y++) {
                 for (let x = 0; x < rCanvas.width; x++) {
-                    const srcX = Math.floor(x / 0.5);
-                    const srcY = Math.floor(y / 0.5);
+                    const srcX = Math.floor(x / 0.4);
+                    const srcY = Math.floor(y / 0.4);
                     const srcIdx = (srcY * width + srcX) * 4;
                     const destIdx = (y * rCanvas.width + x) * 4;
                     
@@ -529,6 +522,56 @@
             bCtx.putImageData(bData, 0, 0);
         }
 
+        // 연결선 그리기
+        // 연결선 그리기 함수 수정
+        function drawConnectionLines() {
+            const svg = document.getElementById('connectionLines');
+            const grid = document.getElementById('imageGrid');
+            const gridRect = grid.getBoundingClientRect();
+            
+            const originalContainer = document.getElementById('originalContainer');
+            const rContainer = document.getElementById('rContainer');
+            const gContainer = document.getElementById('gContainer');
+            const bContainer = document.getElementById('bContainer');
+            
+            const originalRect = originalContainer.getBoundingClientRect();
+            const rRect = rContainer.getBoundingClientRect();
+            const gRect = gContainer.getBoundingClientRect();
+            const bRect = bContainer.getBoundingClientRect();
+            
+            // 원본 이미지 오른쪽 테두리 중앙
+            const startX = originalRect.right - gridRect.left;
+            const startY = originalRect.top + originalRect.height / 2 - gridRect.top;
+            
+            // R 채널 왼쪽 테두리 중앙
+            const rEndX = rRect.left - gridRect.left;
+            const rEndY = rRect.top + rRect.height / 2 - gridRect.top;
+            
+            // G 채널 왼쪽 테두리 중앙
+            const gEndX = gRect.left - gridRect.left;
+            const gEndY = gRect.top + gRect.height / 2 - gridRect.top;
+            
+            // B 채널 왼쪽 테두리 중앙
+            const bEndX = bRect.left - gridRect.left;
+            const bEndY = bRect.top + bRect.height / 2 - gridRect.top;
+            
+            svg.innerHTML = `
+                <line x1="${startX}" y1="${startY}" x2="${rEndX}" y2="${rEndY}" 
+                      stroke="#CC0000" stroke-width="4" opacity="0.8"/>
+                <line x1="${startX}" y1="${startY}" x2="${gEndX}" y2="${gEndY}" 
+                      stroke="#00AA00" stroke-width="4" opacity="0.8"/>
+                <line x1="${startX}" y1="${startY}" x2="${bEndX}" y2="${bEndY}" 
+                      stroke="#0000CC" stroke-width="4" opacity="0.8"/>
+            `;
+        }
+
+        // 윈도우 리사이즈 시 연결선 다시 그리기
+        window.addEventListener('resize', function() {
+            if (originalImage) {
+                drawConnectionLines();
+            }
+        });
+
         // 클릭 이벤트 리스너 등록
         function addClickListeners() {
             [originalCanvas, rCanvas, gCanvas, bCanvas].forEach((canvas, idx) => {
@@ -541,8 +584,8 @@
                     let originalY = y;
                     
                     if (idx > 0) {
-                        originalX = Math.floor(x / 0.5);
-                        originalY = Math.floor(y / 0.5);
+                        originalX = Math.floor(x / 0.4);
+                        originalY = Math.floor(y / 0.4);
                     }
                     
                     updatePixelInfo(originalX, originalY);
@@ -552,7 +595,6 @@
 
         // 선택 영역 표시
         function showSelectionBox(centerX, centerY) {
-            // 기존 선택 박스 제거
             if (selectionBox) {
                 selectionBox.remove();
             }
@@ -562,12 +604,10 @@
             const rect = canvas.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
             
-            // 5x5 영역 계산
             const boxSize = 5;
             const startX = centerX - 2;
             const startY = centerY - 2;
             
-            // 캔버스 좌표를 화면 좌표로 변환
             const scaleX = rect.width / canvas.width;
             const scaleY = rect.height / canvas.height;
             
@@ -576,7 +616,6 @@
             const boxWidth = boxSize * scaleX;
             const boxHeight = boxSize * scaleY;
             
-            // 선택 박스 생성
             selectionBox = document.createElement('div');
             selectionBox.className = 'selection-box';
             selectionBox.style.left = (rect.left - containerRect.left + boxLeft) + 'px';
@@ -606,7 +645,6 @@
             document.getElementById('pixelRGB').innerHTML = 
                 `RGB: (${r}, ${g}, ${b}) <span class="color-preview" style="background-color: rgb(${r}, ${g}, ${b});"></span>`;
             
-            // 선택 영역 표시
             showSelectionBox(x, y);
             
             create5x5Matrix(x, y, r, g, b);
@@ -728,6 +766,7 @@
                 canvas.height = 0;
             });
             
+            document.getElementById('connectionLines').innerHTML = '';
             document.getElementById('pixelInfo').style.display = 'none';
             document.getElementById('matrixGuide').style.display = 'none';
             document.getElementById('matrixContainer').style.display = 'none';
