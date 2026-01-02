@@ -457,30 +457,37 @@
                 originalCanvas.height = img.height;
                 originalCtx.drawImage(img, 0, 0);
                 
-                // 채널 크기를 40%로 축소
-                const channelWidth = Math.floor(img.width * 0.4);
-                const channelHeight = Math.floor(img.height * 0.4);
-                
-                rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
-                rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
-                
-                imageData = originalCtx.getImageData(0, 0, img.width, img.height);
-                
-                separateChannels();
-                
-                const centerX = Math.floor(img.width / 2);
-                const centerY = Math.floor(img.height / 2);
-                updatePixelInfo(centerX, centerY);
-                
-                addClickListeners();
-                
-                // 연결선 그리기
-                drawConnectionLines();
+                // ⭐ DOM에 렌더링된 후 실제 크기 측정 ⭐
+                setTimeout(() => {
+                    // 원본 캔버스의 실제 화면 표시 크기
+                    const rect = originalCanvas.getBoundingClientRect();
+                    const displayWidth = rect.width;
+                    const displayHeight = rect.height;
+                    
+                    // 화면 표시 크기의 40%로 채널 크기 설정
+                    const channelWidth = Math.floor(displayWidth * 0.4);
+                    const channelHeight = Math.floor(displayHeight * 0.4);
+                    
+                    rCanvas.width = gCanvas.width = bCanvas.width = channelWidth;
+                    rCanvas.height = gCanvas.height = bCanvas.height = channelHeight;
+                    
+                    imageData = originalCtx.getImageData(0, 0, img.width, img.height);
+                    
+                    separateChannels();
+                    
+                    const centerX = Math.floor(img.width / 2);
+                    const centerY = Math.floor(img.height / 2);
+                    updatePixelInfo(centerX, centerY);
+                    
+                    addClickListeners();
+                    drawConnectionLines();
+                }, 10);
             };
             img.src = src;
         }
 
         // RGB 채널 분리
+        // separateChannels() 함수 수정
         function separateChannels() {
             const data = imageData.data;
             const width = originalCanvas.width;
@@ -490,26 +497,30 @@
             const gData = gCtx.createImageData(gCanvas.width, gCanvas.height);
             const bData = bCtx.createImageData(bCanvas.width, bCanvas.height);
             
+            // ⭐ 비율을 동적으로 계산 ⭐
+            const scaleX = rCanvas.width / width;
+            const scaleY = rCanvas.height / height;
+            
             for (let y = 0; y < rCanvas.height; y++) {
                 for (let x = 0; x < rCanvas.width; x++) {
-                    const srcX = Math.floor(x / 0.4);
-                    const srcY = Math.floor(y / 0.4);
+                    const srcX = Math.floor(x / scaleX);
+                    const srcY = Math.floor(y / scaleY);
                     const srcIdx = (srcY * width + srcX) * 4;
                     const destIdx = (y * rCanvas.width + x) * 4;
                     
-                    // R 채널 (R만 추출, G와 B는 0)
+                    // R 채널
                     rData.data[destIdx] = data[srcIdx];
                     rData.data[destIdx + 1] = 0;
                     rData.data[destIdx + 2] = 0;
                     rData.data[destIdx + 3] = 255;
                     
-                    // G 채널 (G만 추출, R와 B는 0)
+                    // G 채널
                     gData.data[destIdx] = 0;
                     gData.data[destIdx + 1] = data[srcIdx + 1];
                     gData.data[destIdx + 2] = 0;
                     gData.data[destIdx + 3] = 255;
                     
-                    // B 채널 (B만 추출, R와 G는 0)
+                    // B 채널
                     bData.data[destIdx] = 0;
                     bData.data[destIdx + 1] = 0;
                     bData.data[destIdx + 2] = data[srcIdx + 2];
@@ -584,8 +595,11 @@
                     let originalY = y;
                     
                     if (idx > 0) {
-                        originalX = Math.floor(x / 0.4);
-                        originalY = Math.floor(y / 0.4);
+                        // ⭐ 동적 비율 계산 ⭐
+                        const scaleX = rCanvas.width / originalCanvas.width;
+                        const scaleY = rCanvas.height / originalCanvas.height;
+                        originalX = Math.floor(x / scaleX);
+                        originalY = Math.floor(y / scaleY);
                     }
                     
                     updatePixelInfo(originalX, originalY);
