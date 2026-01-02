@@ -423,27 +423,7 @@
 
         // 샘플 이미지 로드
         function loadSampleImage() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 400;
-            canvas.height = 300;
-            const ctx = canvas.getContext('2d');
-            
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-            gradient.addColorStop(0, '#FF6B6B');
-            gradient.addColorStop(0.5, '#4ECDC4');
-            gradient.addColorStop(1, '#45B7D1');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = '#FFE66D';
-            ctx.fillRect(50, 50, 100, 100);
-            
-            ctx.fillStyle = '#A8E6CF';
-            ctx.beginPath();
-            ctx.arc(300, 150, 60, 0, Math.PI * 2);
-            ctx.fill();
-            
-            loadImage(canvas.toDataURL());
+            loadImage('sample.jpg');
         }
 
         // 이미지 로드 및 처리
